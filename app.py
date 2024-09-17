@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_file
-from logistic_reg import FederatedLogisticRegression, federated_learning_service
+from logistic_reg import FederatedLogisticRegression, federated_learning_service, prediction_service
 import pandas as pd
 import numpy as np
 from joblib import load
@@ -25,49 +25,18 @@ def train_model():
         # content = file.read()
         # data = pd.read_csv(io.StringIO(content.decode('utf-8')))
         data = pd.read_csv(file)
-        print(data.head())
+        # print(data.head())
         fed_model, accuracy = federated_learning_service([data])
-        
-        # Prepare the dataset
-        # target_column = 'is_split'
-        # y = data[target_column]
-        # X = data.drop(columns=[target_column])
-        
-        # # Train the model
-        # fed_model.federated_learning([(X, y)])
+
         
         return jsonify({'message': 'Model trained successfully'}), 200
     
-@app.route('/sec_test', methods=['POST'])
-def test_func():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if file:
-        # Read the CSV file
-        content = file.read()
-        data = pd.read_csv(io.StringIO(content.decode('utf-8')))
 
-        print(data.head())
-        
-        # # Prepare the dataset
-        # target_column = 'is_split'
-        # y = data[target_column]
-        # X = data.drop(columns=[target_column])
-        
-        # # Train the model
-        # fed_model.federated_learning([(X, y)])
-        
-        return jsonify({'message': 'Testing done'}), 200
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    if not fed_model.model:
-        return jsonify({'error': 'Model not trained yet'}), 400
+    # if not fed_model.model:
+    #     return jsonify({'error': 'Model not trained yet'}), 400
     
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
@@ -78,11 +47,11 @@ def predict():
     
     if file:
         # Read the CSV file
-        content = file.read()
-        data = pd.read_csv(io.StringIO(content.decode('utf-8')))
+        # content = file.read()
+        data = pd.read_csv(file)
         
         # Make predictions
-        predictions = fed_model.predict(data)
+        predictions = prediction_service(data)
         
         # Prepare the results
         result = pd.DataFrame({'prediction': predictions})
@@ -98,7 +67,7 @@ def predict():
             io.BytesIO(mem.getvalue().encode()),
             mimetype='text/csv',
             as_attachment=True,
-            attachment_filename='predictions.csv'
+            download_name='predictions.csv'
         )
 
 @app.route('/save_model', methods=['POST'])

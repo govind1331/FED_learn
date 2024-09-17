@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
-from joblib import dump
+from joblib import dump,load
 
 class FederatedLogisticRegression:
     def __init__(self, num_rounds=5):
@@ -114,3 +114,24 @@ def federated_learning_service(data, target_column="is_split", num_rounds=5):
     
     return fed_model, accuracy
 
+def prediction_service(prediction_data):
+    """
+    
+    
+    :param prediction_data: pandas DataFrame containing the data for prediction
+    :return: numpy array of predictions
+    """
+    # Load the saved model
+    model_filename = './federated_logistic_model.joblib'
+    try:
+        loaded_model = load(model_filename)
+        fed_model = FederatedLogisticRegression()
+        fed_model.model = loaded_model['model']
+        fed_model.preprocessor = loaded_model['preprocessor']
+    except FileNotFoundError:
+        raise Exception(f"Model file '{model_filename}' not found. Please train the model first.")
+
+    # Make predictions
+    predictions = fed_model.predict(prediction_data)
+    
+    return predictions
