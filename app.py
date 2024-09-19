@@ -26,11 +26,11 @@ def train_model():
         # data = pd.read_csv(io.StringIO(content.decode('utf-8')))
         data = pd.read_csv(file)
         # print(data.head())
-        fed_model, accuracy = federated_learning_service([data])
-
+        fed_model, accuracy, api_response = federated_learning_service([data])
+        # resp = federated_learning_service([data])
         
         return jsonify({'message': 'Model trained successfully'}), 200
-    
+        # return api_response, 200
 
 
 @app.route('/predict', methods=['POST'])
@@ -92,4 +92,4 @@ def load_model():
         return jsonify({'error': 'Model file not found'}), 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True,port=5000)

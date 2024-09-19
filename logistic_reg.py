@@ -4,6 +4,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
 from joblib import dump,load
+import requests
 
 class FederatedLogisticRegression:
     def __init__(self, num_rounds=5):
@@ -87,6 +88,37 @@ class FederatedLogisticRegression:
     def save_model(self, filename):
         dump({'model': self.model, 'preprocessor': self.preprocessor}, filename)
 
+    def get_model_weights(self):
+        """
+        Extract the weights and intercept of the model.
+        
+        :return: Dictionary containing weights and intercept
+        """
+        if self.model is None:
+            raise ValueError("Model has not been trained yet.")
+        
+        return {
+            'weights': self.model.coef_[0].tolist(),  # Convert numpy array to list
+            'intercept': self.model.intercept_[0]
+        }
+    
+
+def send_weights_to_api(weights, api_url):
+    """
+    Send the model weights to a specified API.
+    
+    :param weights: Dictionary containing weights and intercept
+    :param api_url: String, URL of the API to send the weights to
+    :return: API response
+    """
+    try:
+        response = requests.post(api_url, json=weights)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending weights to API: {e}")
+        return None
+
 def federated_learning_service(data, target_column="is_split", num_rounds=5):
     """
     :param data: List of pandas DataFrames containing the datasets
@@ -94,6 +126,8 @@ def federated_learning_service(data, target_column="is_split", num_rounds=5):
     :param num_rounds: Integer, number of federated learning rounds
     :return: Tuple containing the trained model and test accuracy
     """
+    api_url = "http://127.0.0.1:5005/receive_weights"
+
     # Prepare datasets
     datasets = [(df.drop(columns=[target_column]), df[target_column]) for df in data]
     
@@ -102,17 +136,33 @@ def federated_learning_service(data, target_column="is_split", num_rounds=5):
     fed_model.federated_learning(datasets)
     
     # Save the trained model
-    model_filename = 'federated_logistic_model.joblib'
-    fed_model.save_model(model_filename)
-    print(f"Model saved as '{model_filename}'")
+    # model_filename = 'federated_logistic_model.joblib'
+    # fed_model.save_model(model_filename)
+    # print(f"Model saved as '{model_filename}'")
     
     # Evaluate the model on the last dataset (assuming it's the test set)
     X_test, y_test = datasets[-1]
     predictions = fed_model.predict(X_test)
     accuracy = np.mean(predictions == y_test)
     print(f"Test accuracy: {accuracy:.2f}")
+
+    # extracting model weights
+    model_weights = fed_model.get_model_weights()
+
+    print("The model weights are>>>> \n",model_weights)
+    print(">>>>>>>>>>>>>>>>>>>>>")
+    # Send weights to API if URL is provided
+    api_response = None
+    if api_url:
+        api_response = send_weights_to_api(model_weights, api_url)
+        if api_response:
+            print("Weights successfully sent to API")
+        else:
+            print("Failed to send weights to API")
     
     return fed_model, accuracy
+    # return api_response
+
 
 def prediction_service(prediction_data):
     """
